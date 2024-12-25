@@ -1,0 +1,14 @@
+{
+    "name": "resoul/imdb",
+    "version": "0.0.1",
+    "description": "Imdb parser",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "resoul\\imdb\\": "src/"
+        }
+    },
+    "require": {
+        "guzzlehttp/guzzle": "^7.0"
+    }
+}
