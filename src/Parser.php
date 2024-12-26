@@ -30,14 +30,16 @@ class Parser
     /**
      * @throws Exception
      */
-    public function run()
+    public function run(): Weekend
     {
         $this->createCacheFolder();
         $weekend = $this->_parseTable($this->getHTML($this->uri));
         foreach ($weekend->getReleases() as $release) {
             $film = $this->_parseRelease($release);
-            print_r($film);
+            $release->setFilm($film);
         }
+
+        return $weekend;
     }
 
     private function _parseTable($code): Weekend

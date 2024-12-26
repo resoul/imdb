@@ -11,6 +11,7 @@ class Release
     private int $theaters;
     private int $total;
     private int $weeks;
+    private Film $film;
 
     public function __construct(
         string $release,
@@ -70,5 +71,10 @@ class Release
     public function getRank(): int
     {
         return $this->rank;
+    }
+
+    public function setFilm(Film $film): void
+    {
+        $this->film = $film;
     }
 }

@@ -14,15 +14,21 @@ Installation
 The preferred way to install this extension is through [composer](https://getcomposer.org/download/):
 
 ```
-php composer require resoul/imdb
+composer require resoul/imdb
 ```
 
 Basic Usage
 -----------
 
 ```php
-(new Parser())
-    ->setCacheFolder('/path/to/cache/')
-    ->byWeekend('2024W48')
-    ->run();
+use resoul\imdb\Parser;
+
+try {
+    list ($weekend, $movies) = (new Parser())
+        ->setCacheFolder('/path/to/cache/')
+        ->byWeekend('2024W48')
+        ->run();
+} catch (Exception $e) {
+    echo $e->getMessage();
+}
 ```
