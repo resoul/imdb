@@ -1,6 +1,6 @@
 {
     "name": "resoul/imdb",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "Imdb parser",
     "type": "library",
     "autoload": {
@@ -10,6 +10,8 @@
     },
     "require": {
         "php": ">=8.0",
-        "guzzlehttp/guzzle": "^7.5"
+        "guzzlehttp/guzzle": "^7.5",
+        "ext-dom": "*",
+        "ext-libxml": "*"
     }
 }

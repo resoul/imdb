@@ -1,7 +1,7 @@
 <?php
 namespace resoul\imdb\model;
 
-class Weekend implements IMDBInterface
+class Year implements IMDBInterface
 {
     private string $title;
 

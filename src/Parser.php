@@ -7,17 +7,21 @@ use GuzzleHttp\RequestOptions;
 use resoul\imdb\model\enum\DistributorEnum;
 use resoul\imdb\model\enum\GenreEnum;
 use resoul\imdb\model\enum\RoleEnum;
+use resoul\imdb\model\IMDBInterface;
 use resoul\imdb\model\Weekend;
 use resoul\imdb\model\Release;
 use resoul\imdb\model\Film;
 use resoul\imdb\model\Actor;
 use resoul\imdb\model\Gross;
+use resoul\imdb\model\Year;
 
 class Parser
 {
     private string $cacheFolder;
     private string $uri;
     private Client $client;
+    private int $state;
+    private string $title;
 
     public function __construct()
     {
@@ -30,16 +34,21 @@ class Parser
     /**
      * @throws Exception
      */
-    public function run(): Weekend
+    public function run(): IMDBInterface
     {
         $this->createCacheFolder();
-        $weekend = $this->_parseTable($this->getHTML($this->uri));
-        foreach ($weekend->getReleases() as $release) {
+        if ($this->state == 1) {
+            $data = $this->_parseTable($this->getHTML($this->uri));
+        } else {
+            $data = $this->_parseYear();
+        }
+
+        foreach ($data as $release) {
             $film = $this->_parseRelease($release);
             $release->setFilm($film);
         }
 
-        return $weekend;
+        return $data;
     }
 
     private function _parseTable($code): Weekend
@@ -340,6 +349,91 @@ class Parser
         );
     }
 
+    private function _parseYear(): Year
+    {
+        $dom = new \DOMDocument;
+        libxml_use_internal_errors(true);
+        $dom->loadHTML($this->_request($this->uri));
+        libxml_use_internal_errors(false);
+
+        $content = $dom->getElementById('table');
+        $table = $content->getElementsByTagName('table');
+
+        $data = [];
+        foreach ($table as $item) {
+            $header = $content = [];
+            foreach ($item->getElementsByTagName('tr') as $tr) {
+                foreach ($tr->getElementsByTagName('th') as $cell) {
+                    $header[] = trim($cell->nodeValue);
+                }
+                $body = [];
+                foreach ($tr->getElementsByTagName('td') as $cell) {
+                    $text = trim($cell->nodeValue);
+                    $a = $cell->getElementsByTagName('a');
+                    if ($a->length) {
+                        foreach ($a as $link) {
+                            $scheme = parse_url($link->getAttribute('href'));
+                            if (!isset($scheme['host']) && isset($scheme['path'])) {
+                                $text .= "|https://www.boxofficemojo.com" . $scheme['path'];
+                            }
+                        }
+                    }
+                    $body[] = $text;
+                }
+                if (count($header) == count($body)) {
+                    $content[] = array_combine($header, $body);
+                }
+            }
+            foreach ($content as $key => $value) {
+                foreach ($value as $i => $v) {
+                    switch ($i) {
+                        case 'LW':
+                            $data[$value['Rank']]['last_week'] = $v;
+                            break;
+                        case 'Release':
+                            $explode = explode('|', $v);
+                            $data[$value['Rank']]['movie'] = $explode[0];
+                            if (isset($explode[1])) {
+                                $data[$value['Rank']]['uri'] = $explode[1];
+                            }
+                            break;
+                        case 'Gross':
+                            $data[$value['Rank']]['gross'] = $v;
+                            break;
+                        case 'Theaters':
+                            $data[$value['Rank']]['theaters'] = $v;
+                            break;
+                        case 'Total Gross':
+                            $data[$value['Rank']]['total'] = $v;
+                            break;
+                        case 'Weeks':
+                            $data[$value['Rank']]['weeks'] = $v;
+                            break;
+                    }
+                }
+            }
+        }
+        $result = [];
+        foreach ($data as $position => $value) {
+            if ($position > 30) continue;
+            $result[] = new Release(
+                release: (string) $value['movie'],
+                uri: (string) $value['uri'],
+                theaters: 0,
+                rank: $position,
+                lastWeek: 0,
+                weeks: 0,
+                gross: (int) str_replace(['$', ','], '', $value['gross']) > 0 ? (int) str_replace(['$', ','], '', $value['gross']) : 0,
+                total: 0,
+            );
+        }
+
+        return new Year(
+            title: sprintf('Domestic Box Office For %s', $this->title),
+            release: $result
+        );
+    }
+
     private function getHTML($link, $pro = false): false|string
     {
         $file = str_replace(['/', 'weekend', 'release', 'title'], '', parse_url($link)['path']);
@@ -374,8 +468,17 @@ class Parser
         return $response->getBody()->getContents();
     }
 
+    public function byYear(string $year): static
+    {
+        $this->state = 2;
+        $this->title = $year;
+        $this->uri = sprintf('https://www.boxofficemojo.com/year/%s/?grossesOption=totalGrosses', $year);
+        return $this;
+    }
+
     public function byWeekend(string $weekend): static
     {
+        $this->state = 1;
         $this->uri = sprintf('https://www.boxofficemojo.com/weekend/%s/', $weekend);
         return $this;
     }

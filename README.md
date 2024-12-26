@@ -26,7 +26,7 @@ use resoul\imdb\Parser;
 try {
     $weekend = (new Parser())
         ->setCacheFolder('/path/to/cache/')
-        ->byWeekend('2024W48')
+        ->byWeekend('2024W48') // or byYear(1999)
         ->run();
 } catch (Exception $e) {
     echo $e->getMessage();
