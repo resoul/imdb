@@ -24,7 +24,7 @@ Basic Usage
 use resoul\imdb\Parser;
 
 try {
-    list ($weekend, $movies) = (new Parser())
+    $weekend = (new Parser())
         ->setCacheFolder('/path/to/cache/')
         ->byWeekend('2024W48')
         ->run();
