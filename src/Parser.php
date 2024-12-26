@@ -37,25 +37,29 @@ class Parser
     public function run(): IMDBInterface
     {
         $this->createCacheFolder();
-        if ($this->state == 1) {
-            $data = $this->_parseTable($this->getHTML($this->uri));
-        } else {
-            $data = $this->_parseYear();
-        }
+        $instance = $this->getInstance();
 
-        foreach ($data as $release) {
+        foreach ($instance->getReleases() as $release) {
             $film = $this->_parseRelease($release);
             $release->setFilm($film);
         }
 
-        return $data;
+        return $instance;
     }
 
-    private function _parseTable($code): Weekend
+    private function getInstance(): IMDBInterface
+    {
+        return match ($this->state) {
+            1 => $this->_parseTable(),
+            default => $this->_parseYear(),
+        };
+    }
+
+    private function _parseTable(): Weekend
     {
         $dom = new \DOMDocument;
         libxml_use_internal_errors(true);
-        $dom->loadHTML($code);
+        $dom->loadHTML($this->getHTML($this->uri));
         libxml_use_internal_errors(false);
 
         $content = $dom->getElementById('table');
