@@ -47,6 +47,56 @@ class Parser
         return $instance;
     }
 
+    /**
+     * @throws Exception
+     */
+    public function parse(): array
+    {
+        $this->createCacheFolder();
+        return $this->_parseSource();
+    }
+
+    private function _parseSource(): array
+    {
+        $dom = new DOMDocument;
+        libxml_use_internal_errors(true);
+        $dom->loadHTML(file_get_contents($this->uri));
+        libxml_use_internal_errors(false);
+
+        $elements = $dom->getElementById('search_result_selections_form')
+            ->getElementsByTagName('div');
+
+        $films = [];
+        for ($i = 0; $i < $elements->length; $i++) {
+            if ($elements->item($i)->getAttribute('data-const-id')) {
+                $uri = sprintf(
+                    'https://pro.imdb.com/title/%s',
+                    $elements->item($i)->getAttribute('data-const-id')
+                );
+                $title = (new Title)
+                    ->loadContent(content: $this->createDomDocument(uri: $uri, loadPro: true))
+                    ->getContent();
+
+                $films[] = new Film(
+                    uid: $uri,
+                    releaseUid: $uri,
+                    original: $title['title'],
+                    poster: $title['poster'],
+                    description: $title['description'],
+                    releaseDate: '',
+                    certificate: $title['certificate'],
+                    duration: $title['running_time'],
+                    genres: $title['genres'],
+                    type: $title['type'],
+                    releaseSummary: $title['release_summary'] ?? null,
+                    cast: $title['person'] ?? null,
+                );
+            }
+        }
+
+        return $films;
+    }
+
     private function _parseTable(): IMDB
     {
         $dom = $this->createDomDocument(uri: $this->uri);
@@ -358,6 +408,13 @@ class Parser
     {
         $this->state = 1;
         $this->uri = sprintf('https://www.boxofficemojo.com/weekend/%s/', $weekend);
+        return $this;
+    }
+
+    public function bySource(string $source): static
+    {
+        $this->state = 3;
+        $this->uri = $source;
         return $this;
     }
 
