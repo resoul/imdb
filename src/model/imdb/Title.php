@@ -33,14 +33,18 @@ class Title
         $this->data['genres'] = [];
         if ($this->content->getElementById('title_heading')->childElementCount == 2) {
             $type = trim($this->content->getElementById('title_type')?->textContent ?? '');
-            if ($type == 'TV Series') {
-                $this->data['type'] = FilmTypeEnum::SERIAL;
-            } else {
-                $this->data['type'] = FilmTypeEnum::MOVIE;
+            switch ($type) {
+                case 'TV Series':
+                case 'TV Mini-series':
+                    $this->data['type'] = FilmTypeEnum::SERIAL;
+                    break;
+                default:
+                    $this->data['type'] = FilmTypeEnum::MOVIE;
+                    break;
             }
 
             $this->data['certificate'] = trim($this->content->getElementById('certificate')?->textContent ?? '');
-            $this->data['running_time'] = (int) trim(str_replace('min', '', trim($this->content->getElementById('running_time')->textContent)));
+            $this->data['running_time'] = (int) trim(str_replace('min', '', trim($this->content->getElementById('running_time')?->textContent ?? 0)));
             $labels = array_flip(GenreEnum::getLabels());
             foreach (explode(',', trim($this->content->getElementById('genres')->textContent)) as $genre) {
                 if (isset($labels[trim($genre)])) {
