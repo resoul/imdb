@@ -31,6 +31,7 @@ class Film
     private ?int $openingTheaters;
     private ?int $wideRelease;
     private string $releaseDate;
+    private ?string $releaseSummary;
 
     public function __construct(
         string $uid,
@@ -46,6 +47,7 @@ class Film
         ?int $opening = null,
         ?int $openingTheaters = null,
         ?int $wideRelease = null,
+        ?string $releaseSummary = null,
         ?int $budget = null,
         ?Gross $gross = null,
         ?array $cast = null,
@@ -68,6 +70,7 @@ class Film
         $this->openingTheaters = $openingTheaters;
         $this->wideRelease = $wideRelease;
         $this->type = $type;
+        $this->releaseSummary = $releaseSummary;
     }
 
     public function getUID(): string
@@ -118,6 +121,11 @@ class Film
     public function getOpening(): ?int
     {
         return $this->opening;
+    }
+
+    public function getReleaseSummary(): ?string
+    {
+        return $this->releaseSummary;
     }
 
     public function getWideRelease(): ?int

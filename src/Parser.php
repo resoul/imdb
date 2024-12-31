@@ -2,18 +2,14 @@
 namespace resoul\imdb;
 
 use Exception;
-use DOMElement;
 use DOMDocument;
 use GuzzleHttp\Client;
 use GuzzleHttp\RequestOptions;
 use resoul\imdb\model\enum\DistributorEnum;
-use resoul\imdb\model\enum\FilmTypeEnum;
-use resoul\imdb\model\enum\GenreEnum;
-use resoul\imdb\model\enum\RoleEnum;
 use resoul\imdb\model\IMDB;
+use resoul\imdb\model\imdb\Title;
 use resoul\imdb\model\Release;
 use resoul\imdb\model\Film;
-use resoul\imdb\model\Actor;
 use resoul\imdb\model\Gross;
 
 class Parser
@@ -220,115 +216,28 @@ class Parser
             unset($data['gross']);
         }
 
-        $dom = $this->createDomDocument(uri: $data['uid'], loadPro: true);
-        $poster = $dom->getElementById('primary_image')
-            ->getElementsByTagName('img')
-            ->item(0)
-            ->getAttribute('src');
-
-        $posterSrc = explode('.', str_replace('.jpg', '', basename($poster)))[0];
-        $data['poster'] = str_replace(basename($poster), $posterSrc, $poster);
-
-        $data['genres'] = [];
-        if ($dom->getElementById('title_heading')->childElementCount == 2) {
-            $data['certificate'] = trim($dom->getElementById('certificate')?->textContent ?? '');
-            $data['running_time'] = (int) trim(str_replace('min', '', trim($dom->getElementById('running_time')->textContent)));
-            $labels = array_flip(GenreEnum::getLabels());
-            foreach (explode(',', trim($dom->getElementById('genres')->textContent)) as $genre) {
-                if (isset($labels[trim($genre)])) {
-                    $data['genres'][] = GenreEnum::tryFrom($labels[trim($genre)]);
-                }
-            }
-
-            $title = $dom->getElementById('title_heading');
-            foreach ($title->childNodes->item(0)->childNodes->item(0)->childNodes as $node) {
-                if (!$node instanceof \DOMElement) {
-                    $data['title'] = trim($node->textContent);
-                }
-            }
-        }
-        $description = $dom->getElementById('title_summary');
-        foreach ($description->getElementsByTagName('div') as $div) {
-            $div->remove();
-        }
-        $data['description'] = trim($description->textContent);
-
-        $this->_readCrewLine($data, RoleEnum::DIRECTOR, $dom->getElementById('director_summary'));
-        $this->_readCrewLine($data, RoleEnum::WRITER, $dom->getElementById('writer_summary'));
-        $this->_readCrewLine($data, RoleEnum::PRODUCER, $dom->getElementById('producer_summary'));
-        $this->_readCrewLine($data, RoleEnum::COMPOSER, $dom->getElementById('composer_summary'));
-        $this->_readCrewLine($data, RoleEnum::CINEMATOGRAPHER, $dom->getElementById('cinematographer_summary'));
-
-        $c = 0;
-        foreach ($dom->getElementById('title_cast_sortable_table')->getElementsByTagName('tr') as $tr) {
-            if ($tr->hasAttribute('data-cast-listing-index')) {
-                $path = $name = '';
-                foreach ($tr->getElementsByTagName('td')->item(0)->getElementsByTagName('a') as $a) {
-                    if ($a->hasAttribute('data-tab')) {
-                        $url = parse_url($a->getAttribute('href'));
-                        $path = $url['path'];
-                        $name = trim($a->textContent);
-                    }
-                }
-                foreach ($tr->getElementsByTagName('td')->item(0)->getElementsByTagName('img') as $img) {
-                    if (!empty(trim($img->getAttribute('data-src')))) {
-                        $src = explode('.', str_replace('.jpg', '', basename(trim($img->getAttribute('data-src')))))[0];
-                        $data['cast']["https://pro.imdb.com$path"]['path'] = str_replace(basename(trim($img->getAttribute('data-src'))), $src, trim($img->getAttribute('data-src')));
-                    }
-                }
-                foreach ($tr->getElementsByTagName('td')->item(0)->getElementsByTagName('span') as $span) {
-                    if ($span->getAttribute('class') == 'see_more_text_collapsed') {
-                        $data['cast']["https://pro.imdb.com$path"]['name'] = $name;
-                        $data['cast']["https://pro.imdb.com$path"]['role'] = trim($span->textContent);
-                    }
-                }
-                $c++;
-                if ($c == 8)
-                    break;
-            }
-        }
-        if (isset($data['crew'])) {
-            foreach ($data['crew'] as $role => $item) {
-                foreach ($item as $uri => $name) {
-                    $person[] = new Actor(
-                        original: $name,
-                        uri: $uri,
-                        role: RoleEnum::tryFrom($role)
-                    );
-                }
-            }
-            unset($data['crew']);
-        }
-        if (isset($data['cast'])) {
-            foreach ($data['cast'] as $uri => $actor) {
-                $person[] = new Actor(
-                    original: $actor['name'],
-                    uri: $uri,
-                    role: RoleEnum::ACTOR,
-                    roleName: $actor['role'],
-                    poster: $actor['path'] ?? null
-                );
-            }
-            unset($data['cast']);
-        }
+        $title = (new Title)
+            ->loadContent(content: $this->createDomDocument(uri: $data['uid'], loadPro: true))
+            ->getContent();
 
         return new Film(
             uid: $data['uid'],
             releaseUid: $data['release_uid'],
-            original: $data['title'],
-            poster: $data['poster'],
-            description: $data['description'],
+            original: $title['title'],
+            poster: $title['poster'],
+            description: $title['description'],
             releaseDate: $data['release'],
-            certificate: $data['certificate'],
-            duration: $data['running_time'],
-            genres: $data['genres'],
-            type: FilmTypeEnum::MOVIE,
+            certificate: $title['certificate'],
+            duration: $title['running_time'],
+            genres: $title['genres'],
+            type: $title['type'],
             opening: $data['opening'] ?? null,
             openingTheaters: $data['opening_theaters'] ?? null,
             wideRelease: $data['wide_release'] ?? null,
+            releaseSummary: $title['release_summary'] ?? null,
             budget: $data['budget'] ?? null,
             gross: $gross ?? null,
-            cast: $person ?? null,
+            cast: $title['person'] ?? null,
             distributor: $data['distributor'] ?? null
         );
     }
@@ -429,21 +338,6 @@ class Parser
         }
 
         return file_get_contents(sprintf($this->cacheFolder . "/%s.html", $file));
-    }
-
-    private function _readCrewLine(&$data, RoleEnum $crew, ?DOMElement $element = null): void
-    {
-        if ($element === null) return;
-
-        foreach ($element->getElementsByTagName('a') as $a) {
-            foreach ($a->getElementsByTagName('span') as $span) {
-                $url = sprintf(
-                    "https://pro.imdb.com%s",
-                    parse_url($a->getAttribute('href'), PHP_URL_PATH)
-                );
-                $data['crew'][$crew->value][$url] = trim($span->textContent);
-            }
-        }
     }
 
     private function _request(string $uri): string
