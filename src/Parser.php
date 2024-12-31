@@ -2,18 +2,19 @@
 namespace resoul\imdb;
 
 use Exception;
+use DOMElement;
+use DOMDocument;
 use GuzzleHttp\Client;
 use GuzzleHttp\RequestOptions;
 use resoul\imdb\model\enum\DistributorEnum;
+use resoul\imdb\model\enum\FilmTypeEnum;
 use resoul\imdb\model\enum\GenreEnum;
 use resoul\imdb\model\enum\RoleEnum;
-use resoul\imdb\model\IMDBInterface;
-use resoul\imdb\model\Weekend;
+use resoul\imdb\model\IMDB;
 use resoul\imdb\model\Release;
 use resoul\imdb\model\Film;
 use resoul\imdb\model\Actor;
 use resoul\imdb\model\Gross;
-use resoul\imdb\model\Year;
 
 class Parser
 {
@@ -34,10 +35,13 @@ class Parser
     /**
      * @throws Exception
      */
-    public function run(): IMDBInterface
+    public function run(): IMDB
     {
         $this->createCacheFolder();
-        $instance = $this->getInstance();
+        $instance = match ($this->state) {
+            1 => $this->_parseTable(),
+            default => $this->_parseYear()
+        };
 
         foreach ($instance->getReleases() as $release) {
             $film = $this->_parseRelease($release);
@@ -47,21 +51,9 @@ class Parser
         return $instance;
     }
 
-    private function getInstance(): IMDBInterface
+    private function _parseTable(): IMDB
     {
-        return match ($this->state) {
-            1 => $this->_parseTable(),
-            default => $this->_parseYear(),
-        };
-    }
-
-    private function _parseTable(): Weekend
-    {
-        $dom = new \DOMDocument;
-        libxml_use_internal_errors(true);
-        $dom->loadHTML($this->getHTML($this->uri));
-        libxml_use_internal_errors(false);
-
+        $dom = $this->createDomDocument(uri: $this->uri);
         $content = $dom->getElementById('table');
         $table = $content->getElementsByTagName('table');
 
@@ -137,7 +129,7 @@ class Parser
             );
         }
 
-        return new Weekend(
+        return new IMDB(
             title: $title,
             release: $result
         );
@@ -145,11 +137,7 @@ class Parser
 
     private function _parseRelease(Release $release): Film
     {
-        $dom = new \DOMDocument;
-        libxml_use_internal_errors(true);
-
-        $dom->loadHTML($this->getHTML($release->getUri()));
-        libxml_use_internal_errors(false);
+        $dom = $this->createDomDocument(uri: $release->getUri());
         foreach ($dom->getElementsByTagName('br') as $br) {
             $br->remove();
         }
@@ -205,11 +193,7 @@ class Parser
         $data['release_uid'] = 'https://www.boxofficemojo.com' . parse_url($release->getUri())['path'];
         $data['uid'] = 'https://pro.imdb.com' . parse_url($path)['path'];
 
-        $dom = new \DOMDocument;
-        libxml_use_internal_errors(true);
-        $dom->loadHTML($this->getHTML('https://www.boxofficemojo.com' . parse_url($path)['path']));
-        libxml_use_internal_errors(false);
-
+        $dom = $this->createDomDocument(uri: 'https://www.boxofficemojo.com' . parse_url($path)['path']);
         foreach ($dom->getElementsByTagName('br') as $br) {
             $br->remove();
         }
@@ -236,12 +220,7 @@ class Parser
             unset($data['gross']);
         }
 
-
-        $dom = new \DOMDocument;
-        libxml_use_internal_errors(true);
-        $dom->loadHTML($this->getHTML($data['uid'], true));
-        libxml_use_internal_errors(false);
-
+        $dom = $this->createDomDocument(uri: $data['uid'], loadPro: true);
         $poster = $dom->getElementById('primary_image')
             ->getElementsByTagName('img')
             ->item(0)
@@ -343,6 +322,7 @@ class Parser
             certificate: $data['certificate'],
             duration: $data['running_time'],
             genres: $data['genres'],
+            type: FilmTypeEnum::MOVIE,
             opening: $data['opening'] ?? null,
             openingTheaters: $data['opening_theaters'] ?? null,
             wideRelease: $data['wide_release'] ?? null,
@@ -353,12 +333,9 @@ class Parser
         );
     }
 
-    private function _parseYear(): Year
+    private function _parseYear(): IMDB
     {
-        $dom = new \DOMDocument;
-        libxml_use_internal_errors(true);
-        $dom->loadHTML($this->_request($this->uri));
-        libxml_use_internal_errors(false);
+        $dom = $this->createDomDocument(uri: $this->uri);
 
         $content = $dom->getElementById('table');
         $table = $content->getElementsByTagName('table');
@@ -432,7 +409,7 @@ class Parser
             );
         }
 
-        return new Year(
+        return new IMDB(
             title: sprintf('Domestic Box Office For %s', $this->title),
             release: $result
         );
@@ -454,14 +431,17 @@ class Parser
         return file_get_contents(sprintf($this->cacheFolder . "/%s.html", $file));
     }
 
-    private function _readCrewLine(&$data, RoleEnum $crew, ?\DOMElement $element = null): void
+    private function _readCrewLine(&$data, RoleEnum $crew, ?DOMElement $element = null): void
     {
         if ($element === null) return;
 
         foreach ($element->getElementsByTagName('a') as $a) {
             foreach ($a->getElementsByTagName('span') as $span) {
-                $url = parse_url($a->getAttribute('href'));
-                $data['crew'][$crew->value]['https://pro.imdb.com' . $url['path']] = trim($span->textContent);
+                $url = sprintf(
+                    "https://pro.imdb.com%s",
+                    parse_url($a->getAttribute('href'), PHP_URL_PATH)
+                );
+                $data['crew'][$crew->value][$url] = trim($span->textContent);
             }
         }
     }
@@ -498,5 +478,15 @@ class Parser
     {
         $this->cacheFolder = $path;
         return $this;
+    }
+
+    private function createDomDocument(string $uri, bool $loadPro = false): DOMDocument
+    {
+        $dom = new DOMDocument;
+        libxml_use_internal_errors(true);
+        $dom->loadHTML($this->getHTML($uri, $loadPro));
+        libxml_use_internal_errors(false);
+
+        return $dom;
     }
 }

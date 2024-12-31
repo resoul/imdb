@@ -9,6 +9,7 @@ enum RoleEnum: int
     case PRODUCER = 4;
     case COMPOSER = 5;
     case CINEMATOGRAPHER = 6;
+    case SHOWRUNNER = 7;
 
     public static function getLabels(): array
     {
@@ -19,6 +20,7 @@ enum RoleEnum: int
             RoleEnum::COMPOSER->value => 'Composer',
             RoleEnum::WRITER->value => 'Writer',
             RoleEnum::PRODUCER->value => 'Producer',
+            RoleEnum::SHOWRUNNER->value => 'Showrunner',
         ];
     }
 }

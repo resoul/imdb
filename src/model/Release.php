@@ -77,4 +77,9 @@ class Release
     {
         $this->film = $film;
     }
+
+    public function getFilm(): Film
+    {
+        return $this->film;
+    }
 }

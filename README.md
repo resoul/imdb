@@ -22,9 +22,11 @@ Basic Usage
 
 ```php
 use resoul\imdb\Parser;
+use resoul\imdb\model\IMDB;
 
 try {
-    $weekend = (new Parser())
+    /**@var $data IMDB */
+    $data = (new Parser())
         ->setCacheFolder('/path/to/cache/')
         ->byWeekend('2024W48') // or byYear(1999)
         ->run();

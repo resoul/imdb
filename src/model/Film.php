@@ -2,6 +2,7 @@
 namespace resoul\imdb\model;
 
 use resoul\imdb\model\enum\DistributorEnum;
+use resoul\imdb\model\enum\FilmTypeEnum;
 use resoul\imdb\model\enum\GenreEnum;
 
 class Film
@@ -18,6 +19,7 @@ class Film
      */
     private array $genres;
     private string $uid;
+    private FilmTypeEnum $type;
     private string $releaseUid;
     private string $original;
     private string $description;
@@ -40,6 +42,7 @@ class Film
         string $certificate,
         string $duration,
         array $genres,
+        FilmTypeEnum $type,
         ?int $opening = null,
         ?int $openingTheaters = null,
         ?int $wideRelease = null,
@@ -64,6 +67,7 @@ class Film
         $this->opening = $opening;
         $this->openingTheaters = $openingTheaters;
         $this->wideRelease = $wideRelease;
+        $this->type = $type;
     }
 
     public function getUID(): string
@@ -137,6 +141,11 @@ class Film
     public function getGross(): Gross
     {
         return $this->gross;
+    }
+
+    public function getType(): FilmTypeEnum
+    {
+        return $this->type;
     }
 
     public function getDistributor(): ?DistributorEnum

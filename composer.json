@@ -1,6 +1,6 @@
 {
     "name": "resoul/imdb",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "description": "Imdb parser",
     "type": "library",
     "autoload": {
