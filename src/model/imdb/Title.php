@@ -60,10 +60,13 @@ class Title
             }
         }
         $description = $this->content->getElementById('title_summary');
-        foreach ($description->getElementsByTagName('div') as $div) {
-            $div->remove();
+        $this->data['description'] = '';
+        if ($description) {
+            foreach ($description->getElementsByTagName('div') as $div) {
+                $div->remove();
+            }
+            $this->data['description'] = trim($description->textContent);
         }
-        $this->data['description'] = trim($description->textContent);
 
         $this->_readCrewLine(RoleEnum::DIRECTOR, $this->content->getElementById('director_summary'));
         $this->_readCrewLine(RoleEnum::WRITER, $this->content->getElementById('writer_summary'));
@@ -89,31 +92,34 @@ class Title
         }
 
         $c = 0;
-        foreach ($this->content->getElementById('title_cast_sortable_table')->getElementsByTagName('tr') as $tr) {
-            if ($tr->hasAttribute('data-cast-listing-index')) {
-                $path = $name = '';
-                foreach ($tr->getElementsByTagName('td')->item(0)->getElementsByTagName('a') as $a) {
-                    if ($a->hasAttribute('data-tab')) {
-                        $url = parse_url($a->getAttribute('href'));
-                        $path = $url['path'];
-                        $name = trim($a->textContent);
+        $title_cast_sortable_table = $this->content->getElementById('title_cast_sortable_table');
+        if ($title_cast_sortable_table) {
+            foreach ($title_cast_sortable_table->getElementsByTagName('tr') as $tr) {
+                if ($tr->hasAttribute('data-cast-listing-index')) {
+                    $path = $name = '';
+                    foreach ($tr->getElementsByTagName('td')->item(0)->getElementsByTagName('a') as $a) {
+                        if ($a->hasAttribute('data-tab')) {
+                            $url = parse_url($a->getAttribute('href'));
+                            $path = $url['path'];
+                            $name = trim($a->textContent);
+                        }
                     }
-                }
-                foreach ($tr->getElementsByTagName('td')->item(0)->getElementsByTagName('img') as $img) {
-                    if (!empty(trim($img->getAttribute('data-src')))) {
-                        $src = explode('.', str_replace('.jpg', '', basename(trim($img->getAttribute('data-src')))))[0];
-                        $this->data['cast']["https://pro.imdb.com$path"]['path'] = str_replace(basename(trim($img->getAttribute('data-src'))), $src, trim($img->getAttribute('data-src')));
+                    foreach ($tr->getElementsByTagName('td')->item(0)->getElementsByTagName('img') as $img) {
+                        if (!empty(trim($img->getAttribute('data-src')))) {
+                            $src = explode('.', str_replace('.jpg', '', basename(trim($img->getAttribute('data-src')))))[0];
+                            $this->data['cast']["https://pro.imdb.com$path"]['path'] = str_replace(basename(trim($img->getAttribute('data-src'))), $src, trim($img->getAttribute('data-src')));
+                        }
                     }
-                }
-                foreach ($tr->getElementsByTagName('td')->item(0)->getElementsByTagName('span') as $span) {
-                    if ($span->getAttribute('class') == 'see_more_text_collapsed') {
-                        $this->data['cast']["https://pro.imdb.com$path"]['name'] = $name;
-                        $this->data['cast']["https://pro.imdb.com$path"]['role'] = trim($span->textContent);
+                    foreach ($tr->getElementsByTagName('td')->item(0)->getElementsByTagName('span') as $span) {
+                        if ($span->getAttribute('class') == 'see_more_text_collapsed') {
+                            $this->data['cast']["https://pro.imdb.com$path"]['name'] = $name;
+                            $this->data['cast']["https://pro.imdb.com$path"]['role'] = trim($span->textContent);
+                        }
                     }
+                    $c++;
+                    if ($c == 10)
+                        break;
                 }
-                $c++;
-                if ($c == 10)
-                    break;
             }
         }
         if (isset($this->data['crew'])) {
