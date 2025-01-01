@@ -30,6 +30,7 @@ class Film
     private ?int $opening;
     private ?int $openingTheaters;
     private ?int $wideRelease;
+    private int $seasons;
     private string $releaseDate;
     private ?string $releaseSummary;
 
@@ -49,6 +50,7 @@ class Film
         ?int $wideRelease = null,
         ?string $releaseSummary = null,
         ?int $budget = null,
+        int $seasons = 0,
         ?Gross $gross = null,
         ?array $cast = null,
         ?DistributorEnum $distributor = null,
@@ -71,6 +73,7 @@ class Film
         $this->wideRelease = $wideRelease;
         $this->type = $type;
         $this->releaseSummary = $releaseSummary;
+        $this->seasons = $seasons;
     }
 
     public function getUID(): string
@@ -131,6 +134,11 @@ class Film
     public function getWideRelease(): ?int
     {
         return $this->wideRelease;
+    }
+
+    public function getSeasons(): int
+    {
+        return $this->seasons;
     }
 
     public function getOpeningTheaters(): ?int

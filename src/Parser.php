@@ -66,6 +66,7 @@ class Parser
             genres: $title['genres'],
             type: $title['type'],
             releaseSummary: $title['release_summary'] ?? null,
+            seasons: $title['seasons'],
             cast: $title['person'] ?? null,
         );
     }
