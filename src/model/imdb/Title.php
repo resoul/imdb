@@ -46,9 +46,12 @@ class Title
             $this->data['certificate'] = trim($this->content->getElementById('certificate')?->textContent ?? '');
             $this->data['running_time'] = (int) trim(str_replace('min', '', trim($this->content->getElementById('running_time')?->textContent ?? 0)));
             $labels = array_flip(GenreEnum::getLabels());
-            foreach (explode(',', trim($this->content->getElementById('genres')->textContent)) as $genre) {
-                if (isset($labels[trim($genre)])) {
-                    $this->data['genres'][] = GenreEnum::tryFrom($labels[trim($genre)]);
+            $genres = $this->content->getElementById('genres');
+            if ($genres) {
+                foreach (explode(',', trim($genres->textContent)) as $genre) {
+                    if (isset($labels[trim($genre)])) {
+                        $this->data['genres'][] = GenreEnum::tryFrom($labels[trim($genre)]);
+                    }
                 }
             }
 
