@@ -377,6 +377,14 @@ class Parser
         return $this;
     }
 
+    public function bySource(string $source): static
+    {
+        $this->state = 3;
+        $this->title = $source;
+        $this->uri = $source;
+        return $this;
+    }
+
     public function byWeekend(string $weekend): static
     {
         $this->state = 1;
