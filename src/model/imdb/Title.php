@@ -78,19 +78,16 @@ class Title
         $this->_readCrewLine(RoleEnum::CINEMATOGRAPHER, $this->content->getElementById('cinematographer_summary'));
 
         $season = $this->content->getElementById('season');
+        $this->data['seasons'] = 0;
         if ($season) {
-            $seasons = 0;
             foreach ($season->getElementsByTagName('span') as $span) {
                 if ($span->getAttribute('class') === 'a-declarative') {
                     foreach ($span->getElementsByTagName('a') as $a) {
-                        if ((int) $a->textContent && $seasons < (int) $a->textContent) {
-                            $seasons = (int) $a->textContent;
+                        if ((int) $a->textContent && $this->data['seasons'] < (int) $a->textContent) {
+                            $this->data['seasons'] = (int) $a->textContent;
                         }
                     }
                 }
-            }
-            if ($seasons) {
-                $this->data['seasons'] = $seasons;
             }
         }
 
