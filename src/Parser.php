@@ -1,4 +1,30 @@
 <?php
+/**
+ * Box Office Mojo and IMDB Pro Parser
+ *
+ * This class provides functionality to scrape box office data from Box Office Mojo
+ * and detailed film information from IMDB Pro. It supports parsing weekend rankings,
+ * yearly box office data, and individual film details.
+ *
+ * @package resoul\imdb
+ * @author resoul
+ * @version 0.1.3
+ * @since 0.1.0
+ *
+ * @example Basic usage:
+ * ```php
+ * $parser = new Parser();
+ * $data = $parser
+ *     ->setCacheFolder('/tmp/cache/')
+ *     ->byWeekend('2024W48')
+ *     ->run();
+ *
+ * foreach ($data->getReleases() as $release) {
+ *     echo $release->getRelease() . ': $' . number_format($release->getGross()) . "\n";
+ * }
+ * ```
+ */
+
 namespace resoul\imdb;
 
 use Exception;
@@ -14,12 +40,38 @@ use resoul\imdb\model\Gross;
 
 class Parser
 {
+    /**
+     * Cache directory path for storing downloaded HTML files
+     */
     private string $cacheFolder;
+
+    /**
+     * Target URL to parse
+     */
     private string $uri;
+
+    /**
+     * HTTP client instance for making requests
+     */
     private Client $client;
+
+    /**
+     * Parser state: 1=weekend, 2=yearly, 3=custom source
+     */
     private int $state;
+
+    /**
+     * Title or identifier for the parsing operation
+     */
     private string $title;
 
+    /**
+     * Initialize the parser with default HTTP client configuration.
+     *
+     * Sets up Guzzle HTTP client with SSL verification disabled and 30-second timeout.
+     *
+     * @since 0.1.0
+     */
     public function __construct()
     {
         $this->client = new Client([
@@ -29,7 +81,33 @@ class Parser
     }
 
     /**
-     * @throws Exception
+     * Execute the parsing operation and return structured box office data.
+     *
+     * This method processes the configured source (weekend, yearly, or custom URL),
+     * extracts box office rankings, and enriches each release with detailed film
+     * information from IMDB Pro.
+     *
+     * @return IMDB Complete box office data with film details
+     *
+     * @throws Exception If cache directory cannot be created
+     * @throws Exception If network request fails
+     * @throws Exception If HTML parsing encounters errors
+     * @throws Exception If required DOM elements are not found
+     *
+     * @example Weekend box office parsing:
+     * ```php
+     * $data = $parser->byWeekend('2024W48')->run();
+     * echo "Found " . count($data->getReleases()) . " releases";
+     * ```
+     *
+     * @example Yearly box office parsing:
+     * ```php
+     * $data = $parser->byYear('2024')->run();
+     * $topFilm = $data->getReleases()[0];
+     * echo "Top film: " . $topFilm->getRelease();
+     * ```
+     *
+     * @since 0.1.0
      */
     public function run(): IMDB
     {
@@ -47,6 +125,31 @@ class Parser
         return $instance;
     }
 
+    /**
+     * Parse detailed film information from IMDB Pro.
+     *
+     * This method extracts comprehensive film data including cast, crew,
+     * plot summary, technical details, and poster images from IMDB Pro pages.
+     *
+     * @return Film Complete film information object
+     *
+     * @throws Exception If cache directory cannot be created
+     * @throws Exception If network request fails
+     * @throws Exception If IMDB Pro page parsing fails
+     *
+     * @example Parse specific film:
+     * ```php
+     * $film = $parser
+     *     ->bySource('https://pro.imdb.com/title/tt123456/')
+     *     ->parseTitle();
+     *
+     * echo "Title: " . $film->getOriginal() . "\n";
+     * echo "Runtime: " . $film->getDuration() . " minutes\n";
+     * echo "Cast: " . count($film->getCast()) . " people\n";
+     * ```
+     *
+     * @since 0.1.0
+     */
     public function parseTitle(): Film
     {
         $this->createCacheFolder();
@@ -71,6 +174,20 @@ class Parser
         );
     }
 
+    /**
+     * Parse weekend box office table data.
+     *
+     * Extracts box office rankings from Box Office Mojo weekend pages,
+     * including rank, gross revenue, theater count, and weeks in release.
+     *
+     * @return IMDB Weekend box office data with up to 10 releases
+     *
+     * @throws Exception If HTML table structure is invalid
+     * @throws Exception If required data fields are missing
+     *
+     * @internal This method is called by run() for weekend data
+     * @since 0.1.0
+     */
     private function _parseTable(): IMDB
     {
         $dom = $this->createDomDocument(uri: $this->uri);
@@ -155,6 +272,24 @@ class Parser
         );
     }
 
+    /**
+     * Extract detailed film information from Box Office Mojo and IMDB Pro.
+     *
+     * This method processes a Release object to gather comprehensive film data
+     * including financial performance, distribution details, cast, crew, and
+     * technical specifications from multiple sources.
+     *
+     * @param Release $release Release object containing basic box office data
+     *
+     * @return Film Complete film information with financial and creative details
+     *
+     * @throws Exception If Box Office Mojo page parsing fails
+     * @throws Exception If IMDB Pro page cannot be accessed
+     * @throws Exception If required film data elements are missing
+     *
+     * @internal This method is called by run() for each release
+     * @since 0.1.0
+     */
     private function _parseRelease(Release $release): Film
     {
         $dom = $this->createDomDocument(uri: $release->getUri());
@@ -266,6 +401,21 @@ class Parser
         );
     }
 
+    /**
+     * Parse yearly box office data from Box Office Mojo.
+     *
+     * Extracts annual box office rankings, processing up to 30 releases
+     * with their total gross revenues. Unlike weekend data, yearly data
+     * doesn't include theater counts or weekly performance metrics.
+     *
+     * @return IMDB Yearly box office data with up to 30 releases
+     *
+     * @throws Exception If HTML table structure is invalid
+     * @throws Exception If required data fields are missing
+     *
+     * @internal This method is called by run() for yearly data
+     * @since 0.1.0
+     */
     private function _parseYear(): IMDB
     {
         $dom = $this->createDomDocument(uri: $this->uri);
@@ -327,6 +477,8 @@ class Parser
                 }
             }
         }
+
+        // Convert to Release objects (limit to top 30 for yearly data)
         $result = [];
         foreach ($data as $position => $value) {
             if ($position > 30) continue;
@@ -348,14 +500,33 @@ class Parser
         );
     }
 
-    private function getHTML($link, $pro = false): false|string
+    /**
+     * Download and cache HTML content from the specified URL.
+     *
+     * This method implements a simple file-based caching system to avoid
+     * redundant HTTP requests. Cached files are stored with sanitized
+     * filenames based on the URL path.
+     *
+     * @param string $link Full URL to download
+     * @param bool $pro Whether this is an IMDB Pro page (affects cache filename)
+     *
+     * @return string|false HTML content or false on failure
+     *
+     * @throws Exception If HTTP request fails
+     *
+     * @internal This method handles caching logic for all HTTP requests
+     * @since 0.1.0
+     */
+    private function getHTML(string $link, bool $pro = false): false|string
     {
+        // Generate cache filename from URL path
         $file = str_replace(['/', 'weekend', 'release', 'title'], '', parse_url($link)['path']);
 
         if ($pro) {
             $file = "pro.$file";
         }
 
+        // Return cached content if exists
         if (!file_exists(sprintf($this->cacheFolder . "/%s.html", $file))) {
             echo ">> $file" . PHP_EOL;
             file_put_contents(sprintf($this->cacheFolder . "/%s.html", $file), $this->_request($link));
@@ -364,12 +535,48 @@ class Parser
         return file_get_contents(sprintf($this->cacheFolder . "/%s.html", $file));
     }
 
+    /**
+     * Execute HTTP GET request to the specified URL.
+     *
+     * Uses the configured Guzzle HTTP client to fetch content from the target URL.
+     *
+     * @param string $uri Target URL to request
+     *
+     * @return string Response body content
+     *
+     * @throws Exception If HTTP request fails or times out
+     *
+     * @internal This method performs the actual HTTP requests
+     * @since 0.1.0
+     */
     private function _request(string $uri): string
     {
         $response = $this->client->request('GET', $uri);
         return $response->getBody()->getContents();
     }
 
+    /**
+     * Configure parser to extract yearly box office data.
+     *
+     * Sets the parser to retrieve annual box office rankings from Box Office Mojo
+     * for the specified year. Results include total gross revenues for the year
+     * but exclude weekly performance metrics.
+     *
+     * @param string $year Year in YYYY format (e.g., "2024", "2023")
+     *
+     * @return static Returns self for method chaining
+     *
+     * @example Parse 2024 yearly data:
+     * ```php
+     * $data = $parser
+     *     ->byYear('2024')
+     *     ->run();
+     *
+     * echo "Top grossing film of 2024: " . $data->getReleases()[0]->getRelease();
+     * ```
+     *
+     * @since 0.1.0
+     */
     public function byYear(string $year): static
     {
         $this->state = 2;
@@ -378,6 +585,33 @@ class Parser
         return $this;
     }
 
+    /**
+     * Configure parser to extract data from a custom URL.
+     *
+     * Sets the parser to process data from any specified URL. This method
+     * is useful for parsing specific Box Office Mojo pages or IMDB Pro URLs
+     * that don't fit the standard weekend/yearly patterns.
+     *
+     * @param string $source Full URL to parse (must be valid Box Office Mojo or IMDB Pro URL)
+     *
+     * @return static Returns self for method chaining
+     *
+     * @example Parse custom Box Office Mojo page:
+     * ```php
+     * $data = $parser
+     *     ->bySource('https://www.boxofficemojo.com/chart/top_lifetime_gross/')
+     *     ->run();
+     * ```
+     *
+     * @example Parse specific IMDB Pro title:
+     * ```php
+     * $film = $parser
+     *     ->bySource('https://pro.imdb.com/title/tt123456/')
+     *     ->parseTitle();
+     * ```
+     *
+     * @since 0.1.0
+     */
     public function bySource(string $source): static
     {
         $this->state = 3;
@@ -386,6 +620,39 @@ class Parser
         return $this;
     }
 
+    /**
+     * Configure parser to extract weekend box office data.
+     *
+     * Sets the parser to retrieve weekend box office rankings from Box Office Mojo
+     * for the specified weekend. Results include detailed performance metrics
+     * like theater counts, weekly changes, and per-theater averages.
+     *
+     * @param string $weekend Weekend identifier in format "YYYYWNN" where:
+     *                       - YYYY is the year (e.g., "2024")
+     *                       - W is literal "W"
+     *                       - NN is the week number (01-52, e.g., "48")
+     *
+     * @return static Returns self for method chaining
+     *
+     * @example Parse specific weekend:
+     * ```php
+     * $data = $parser
+     *     ->byWeekend('2024W48')
+     *     ->run();
+     *
+     * foreach ($data->getReleases() as $release) {
+     *     printf(
+     *         "#%d: %s - $%s (%d theaters)\n",
+     *         $release->getRank(),
+     *         $release->getRelease(),
+     *         number_format($release->getGross()),
+     *         $release->getTheaters()
+     *     );
+     * }
+     * ```
+     *
+     * @since 0.1.0
+     */
     public function byWeekend(string $weekend): static
     {
         $this->state = 1;
@@ -393,6 +660,17 @@ class Parser
         return $this;
     }
 
+    /**
+     * Create cache directory if it doesn't exist.
+     *
+     * Ensures the cache directory exists with proper permissions (755).
+     * This method is called automatically before any caching operations.
+     *
+     * @throws Exception If directory cannot be created or lacks write permissions
+     *
+     * @internal This method is called automatically by parsing methods
+     * @since 0.1.0
+     */
     private function createCacheFolder(): void
     {
         if (!is_dir($this->cacheFolder) && !mkdir($this->cacheFolder, 0755, true)) {
@@ -400,12 +678,51 @@ class Parser
         }
     }
 
-    public function setCacheFolder($path): static
+    /**
+     * Set the cache directory path for storing downloaded HTML files.
+     *
+     * The cache directory will be created automatically if it doesn't exist.
+     * Cached files help avoid redundant HTTP requests and improve performance
+     * for repeated parsing operations.
+     *
+     * @param string $path Absolute path to cache directory (must be writable)
+     *
+     * @return static Returns self for method chaining
+     *
+     * @throws Exception If path is not writable when cache operations are performed
+     *
+     * @example Set cache directory:
+     * ```php
+     * $parser->setCacheFolder('/var/cache/imdb/');
+     * $parser->setCacheFolder('./cache/'); // Relative paths work too
+     * ```
+     *
+     * @since 0.1.0
+     */
+    public function setCacheFolder(string $path): static
     {
         $this->cacheFolder = $path;
         return $this;
     }
 
+    /**
+     * Create and configure a DOMDocument from HTML content.
+     *
+     * Downloads HTML content, creates a DOMDocument instance, and loads
+     * the HTML while suppressing libxml errors. This method handles both
+     * regular Box Office Mojo pages and IMDB Pro pages.
+     *
+     * @param string $uri URL to download and parse
+     * @param bool $loadPro Whether this is an IMDB Pro page (affects caching)
+     *
+     * @return DOMDocument Configured DOM document ready for parsing
+     *
+     * @throws Exception If HTML content cannot be downloaded
+     * @throws Exception If DOM document creation fails
+     *
+     * @internal This method is used by all parsing operations
+     * @since 0.1.0
+     */
     private function createDomDocument(string $uri, bool $loadPro = false): DOMDocument
     {
         $dom = new DOMDocument;
