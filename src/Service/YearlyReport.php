@@ -1,7 +1,8 @@
 <?php
-namespace resoul\imdb\model;
+namespace Resoul\Imdb\Service;
 
 use JsonSerializable;
+use Resoul\Imdb\Domain\Release;
 
 /**
  * Yearly Report Class
