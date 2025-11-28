@@ -1,5 +1,5 @@
 <?php
-namespace resoul\imdb\model;
+namespace Resoul\Imdb\Domain;
 
 /**
  * Release Model Class

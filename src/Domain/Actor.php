@@ -9,9 +9,9 @@
  * @version 0.1.3
  * @since 0.1.0
  */
-namespace resoul\imdb\model;
+namespace Resoul\Imdb\Domain;
 
-use resoul\imdb\model\enum\RoleEnum;
+use Resoul\Imdb\Enum\RoleEnum;
 
 class Actor
 {
