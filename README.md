@@ -46,7 +46,6 @@ Install via Composer:
 ```bash
 composer require resoul/imdb
 ```
-
 ## Quick Start
 
 ```php
