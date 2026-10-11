@@ -1,9 +1,10 @@
 <?php
-namespace resoul\imdb\model;
+namespace Resoul\Imdb\Domain;
 
-use resoul\imdb\model\enum\DistributorEnum;
-use resoul\imdb\model\enum\FilmTypeEnum;
-use resoul\imdb\model\enum\GenreEnum;
+use Resoul\Imdb\Enum\DistributorEnum;
+use Resoul\Imdb\Enum\FilmTypeEnum;
+use Resoul\Imdb\Enum\GenreEnum;
+use resoul\imdb\model_\Gross;
 
 /**
  * Film Model Class

@@ -1,5 +1,5 @@
 <?php
-namespace resoul\imdb\model\enum;
+namespace Resoul\Imdb\Enum;
 
 enum FilmTypeEnum: int
 {

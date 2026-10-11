@@ -1,15 +1,9 @@
 <?php
-namespace resoul\imdb\model;
+namespace Resoul\Imdb\Service;
 
-use resoul\imdb\Parser;
+use Resoul\Imdb\Parser;
 use Exception;
 
-/**
- * Box Office Analytics Class
- *
- * Comprehensive example showing how to build analytics functionality
- * on top of the IMDB parser with proper error handling and caching.
- */
 class BoxOfficeAnalytics
 {
     private Parser $parser;
